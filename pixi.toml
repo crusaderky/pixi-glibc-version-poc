@@ -1,0 +1,18 @@
+[workspace]
+channels = ["https://prefix.dev/conda-forge"]
+preview = ["pixi-build"]
+
+# ATTEMPT 1 at raising the build-time glibc: declare the system requirement on
+# the platform entry. `glibc` is an accepted key here (pixi rejects unknown ones
+# with "Unexpected keys, expected only 'name', 'platform', 'cuda', 'archspec',
+# 'glibc', 'linux', 'macos', 'osx', 'windows'"), so this is valid syntax --
+# but it has no effect on the sysroot the recipe is built against.
+platforms = [{ platform = "linux-64", glibc = "2.34" }]
+
+[package]
+name = "glibc-poc"
+version = "0.1.0"
+
+[package.build.backend]
+name = "pixi-build-rattler-build"
+version = "*"

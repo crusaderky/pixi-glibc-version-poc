@@ -1,0 +1,10 @@
+# ATTEMPT 2 (see recipe.yaml): ask stdlib('c') for a 2.34 sysroot.
+#
+# This file IS read -- `control_key` below reaches the build script, proving the
+# variant config is picked up. But `c_stdlib_version` is also injected by pixi
+# itself, and the injected value wins, so stdlib('c') still expands to
+# `sysroot_linux-64 =2.28`.
+c_stdlib_version: ["2.34"]
+
+# Control: an arbitrary key, echoed by build.sh, to show variants.yaml is loaded.
+control_key: ["variants.yaml-was-read"]

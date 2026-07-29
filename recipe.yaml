@@ -1,0 +1,47 @@
+package:
+  name: glibc-poc
+  version: "0.1.0"
+
+source:
+  - path: src
+
+build:
+  script:
+    file: build
+    env:
+      # Surface what the jinja functions and the variant config actually
+      # resolved to, so the build log is self-evidencing.
+      STDLIB_SPEC: ${{ stdlib('c') }}
+      CONTROL_KEY: ${{ control_key }}
+      C_STDLIB_VERSION: ${{ c_stdlib_version }}
+
+requirements:
+  build:
+    - ${{ compiler('c') }}
+    # ATTEMPT 2 at raising the build-time glibc: use the documented stdlib()
+    # jinja function and set `c_stdlib_version` in variants.yaml. See the
+    # comment in variants.yaml -- the value is overridden by pixi, and this
+    # expands to `sysroot_linux-64 =2.28`.
+    - ${{ stdlib('c') }}
+
+    # ATTEMPT 3 at raising the build-time glibc: pin the sysroot package
+    # directly. Uncomment to fail in the solver rather than the compiler, with
+    # both halves of the problem visible in one message:
+    #
+    #   Error:   x failed to solve the build environment for package 'glibc-poc'
+    #     |-> failed to solve the environment
+    #     `-> Cannot solve the request because of: sysroot_linux-64 2.34.*
+    #         cannot be installed because there are no viable options:
+    #         `- sysroot_linux-64 2.34 would require
+    #            `- __glibc >=2.34, for which no candidates were found.
+    #         The following packages are incompatible
+    #         |- sysroot_linux-64 2.34.* cannot be installed ...
+    #         `- sysroot_linux-64 2.28.* cannot be installed ...
+    #
+    # 1. `__glibc >=2.34` has no candidates, i.e. the `glibc = "2.34"` system
+    #    requirement declared in pixi.toml did not reach this solve. The
+    #    baseline stays at 2.28 (a `sysroot_linux-64 2.28.*` pin resolves fine).
+    # 2. The explicit 2.34 pin also collides head-on with the `=2.28` that
+    #    stdlib('c') injected, so the two attempts cannot even be combined.
+    #
+    # - sysroot_linux-64 2.34.*
