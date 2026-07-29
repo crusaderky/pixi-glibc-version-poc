@@ -5,8 +5,9 @@ preview = ["pixi-build"]
 # ATTEMPT 1 at raising the build-time glibc: declare the system requirement on
 # the platform entry. `glibc` is an accepted key here (pixi rejects unknown ones
 # with "Unexpected keys, expected only 'name', 'platform', 'cuda', 'archspec',
-# 'glibc', 'linux', 'macos', 'osx', 'windows'"), so this is valid syntax --
-# but it has no effect on the sysroot the recipe is built against.
+# 'glibc', 'linux', 'macos', 'osx', 'windows'"), so this is valid syntax -- but
+# it has no effect on the sysroot the recipe is built against, in EITHER
+# direction: "2.17", "2.28" and "2.39" all yield `sysroot_linux-64 =2.28`.
 platforms = [{ platform = "linux-64", glibc = "2.34" }]
 
 [package]
@@ -16,3 +17,17 @@ version = "0.1.0"
 [package.build.backend]
 name = "pixi-build-rattler-build"
 version = "*"
+
+# ATTEMPT 4 at raising the build-time glibc: set the backend's variant config
+# directly. `[package.build.config]` is the right table, but on
+# pixi-build-rattler-build 0.4.4 it accepts only:
+#
+#   unknown field `variantConfiguration`, expected one of `debug-dir`,
+#   `debug_dir`, `extra-input-globs`, `experimental`, `recipe`
+#
+# The backend binary does carry a `variantConfiguration` field, but it is
+# protocol-internal (pixi -> backend) and not user-settable here. Setting
+# `experimental = true` instead is accepted and changes nothing.
+#
+# [package.build.config]
+# variantConfiguration = { c_stdlib_version = ["2.34"] }

@@ -55,7 +55,7 @@ $ echo | x86_64-conda-linux-gnu-gcc -E -Wp,-v -
  .../x86_64-conda-linux-gnu/sysroot/usr/include     <-- only libc headers
 ```
 
-## The three ways I tried to ask for a newer glibc
+## The four ways I tried to ask for a newer glibc
 
 ### 1. `glibc` system requirement in `pixi.toml`
 
@@ -67,6 +67,19 @@ Valid syntax — pixi rejects unknown keys here with *"Unexpected keys, expected
 only `name`, `platform`, `cuda`, `archspec`, `glibc`, `linux`, `macos`, `osx`,
 `windows`"* — but it has no effect on the sysroot, and `__glibc` in the build
 solve stays at 2.28 (see attempt 3).
+
+The value is ignored in **both** directions, so this is not a "can't lower the
+floor" safety check — the declared requirement simply never reaches the build:
+
+| `glibc` in `pixi.toml` | resolved `stdlib('c')` |
+| --- | --- |
+| `"2.17"` | `sysroot_linux-64 =2.28` |
+| `"2.28"` | `sysroot_linux-64 =2.28` |
+| `"2.39"` | `sysroot_linux-64 =2.28` |
+
+(`[system-requirements]` is the older spelling; pixi 0.73 rejects it with
+*"declare these on the `platforms` entries instead"*, so the table above is the
+current supported form.)
 
 ### 2. `stdlib('c')` + `c_stdlib_version` in `variants.yaml`
 
@@ -122,6 +135,41 @@ Both halves of the problem in one message:
    *depends on* `__glibc >=2.34`, so the virtual package gates the sysroot.)
 2. The explicit `2.34` pin collides head-on with the `=2.28` injected by
    `stdlib('c')`, so attempts 2 and 3 cannot even be combined.
+
+### 4. The backend's own variant config
+
+`[package.build.config]` is the correct table for backend configuration, but on
+`pixi-build-rattler-build` 0.4.4 it does not expose the variant config:
+
+```toml
+[package.build.config]
+variantConfiguration = { c_stdlib_version = ["2.34"] }
+```
+```
+Error:   × could not initialize the build-backend
+  ╰─▶   × unknown field `variantConfiguration`, expected one of `debug-dir`,
+        │ `debug_dir`, `extra-input-globs`, `experimental`, `recipe`
+```
+
+The backend binary *does* carry a `variantConfiguration` field, but it is
+protocol-internal — the channel pixi uses to hand its own variant config to the
+backend — and is not reachable from the manifest. `experimental = true` is
+accepted and changes nothing.
+
+`pixi config` likewise exposes no glibc/stdlib/sysroot/variant setting.
+
+## Where the 2.28 comes from
+
+Not a hardcoded constant in either binary: `pixi-build-rattler-build` contains no
+literal `2.28` at all, and in `pixi` the only occurrences are a cargo dependency
+path and the `--glibc` CLI help example. `pixi` does contain the `c_stdlib` and
+`c_stdlib_version` key names, while the backend contains only the `_stdlib`
+format fragments — so pixi composes the variant config and passes it down, and
+its value takes precedence over the recipe's `variants.yaml`.
+
+So the pin appears to be derived from pixi's *default* glibc system requirement
+for the target platform, with the workspace's declared requirement not consulted
+on this path.
 
 ## Expected
 
